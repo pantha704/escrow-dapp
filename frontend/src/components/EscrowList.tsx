@@ -55,10 +55,10 @@ export const EscrowList: React.FC<EscrowListProps> = ({
   const copyToClipboard = async (value) => {
     try {
       await navigator.clipboard.writeText(value);
-      
+
       // Simple toast notification
-      const toast = document.createElement('div');
-      toast.textContent = 'Copied token address!';
+      const toast = document.createElement("div");
+      toast.textContent = "Copied token address!";
       toast.style.cssText = `
         position: fixed;
         top: 20px;
@@ -74,25 +74,21 @@ export const EscrowList: React.FC<EscrowListProps> = ({
         transform: translateX(400px);
         transition: transform 0.3s ease;
       `;
-      
+
       document.body.appendChild(toast);
-      
+
       // Slide in
-      setTimeout(() => toast.style.transform = 'translateX(0)', 10);
-      
+      setTimeout(() => (toast.style.transform = "translateX(0)"), 10);
+
       // Slide out and remove
       setTimeout(() => {
-        toast.style.transform = 'translateX(400px)';
+        toast.style.transform = "translateX(400px)";
         setTimeout(() => document.body.removeChild(toast), 300);
       }, 2000);
-      
     } catch (err) {
-      console.error('Copy failed:', err);
+      console.error("Copy failed:", err);
     }
   };
-  
-  
-  
 
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
@@ -118,29 +114,27 @@ export const EscrowList: React.FC<EscrowListProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400 cursor-pointer hover:text-purple-200"
-                  onClick={() => copyToClipboard(escrow.mintA)}
-                  title={`${escrow.mintA}`}
+                  <span
+                    className="text-sm text-gray-400 cursor-pointer hover:text-purple-200"
+                    onClick={() => copyToClipboard(escrow.mintA)}
+                    title={`${escrow.mintA}`}
                   >
-                    <span className="underline">Vault Balance</span> :
+                    <span className="underline">Vault Token</span>Balance :
                   </span>
-                  
-                  <span 
-                    className="font-mono text-purple-300"
-                  >
+
+                  <span className="font-mono text-purple-300">
                     {formatTokenAmount(escrow.vaultBalance)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center cursor-pointer hover:text-purple-200">
-                  <span className="text-sm text-gray-400"
-                  onClick={() => copyToClipboard(escrow.mintB)}
-                  title={`${escrow.mintB}`}
+                  <span
+                    className="text-sm text-gray-400"
+                    onClick={() => copyToClipboard(escrow.mintB)}
+                    title={`${escrow.mintB}`}
                   >
-                    <span className="underline">Expected Token Amount</span> :
+                    <span className="underline">Expected Token </span>Amount :
                   </span>
-                  <span 
-                    className="font-mono text-purple-300 "
-                  >
+                  <span className="font-mono text-purple-300 ">
                     {formatTokenAmount(escrow.receive)}
                   </span>
                 </div>
