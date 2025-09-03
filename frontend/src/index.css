@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Wallet adapter styles */
+.wallet-adapter-button {
+  @apply bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-2 px-4 rounded-lg transition-all;
+}
+
+.wallet-adapter-button-trigger {
+  @apply bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700;
+}
+
+.wallet-adapter-modal-overlay {
+  @apply bg-black bg-opacity-50;
+}
+
+.wallet-adapter-modal {
+  @apply bg-gray-800 border border-purple-500/20 rounded-xl;
+}
+
+.wallet-adapter-modal-title {
+  @apply text-white text-xl font-bold;
+}
+
+.wallet-adapter-modal-list {
+  @apply space-y-2;
+}
+
+.wallet-adapter-modal-list-item {
+  @apply bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-all;
+}

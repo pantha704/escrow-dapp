@@ -1,93 +1,163 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/idxPpgnz)
-![School of Solana](https://github.com/Ackee-Blockchain/school-of-solana/blob/master/.banner/banner.png?raw=true)
+# Solana Escrow dApp
 
-## 📚Solana Program
-We are about halfway through the course, and you already have some experience with programming on Solana. It is time to create something on your own! You will be building a dApp that will serve as the culmination of everything you have learned so far. Feel free to implement whatever comes to your mind, (as long as it passes the requirements).
+A decentralized escrow service for secure peer-to-peer SPL token exchanges on Solana.
 
-**This does not mean that the School of Solana is coming to an end just yet!** There are still several exciting lectures ahead, as well as one security related task.
+## 🚀 Quick Start
 
-### Task details
-This task consists of two parts:
-1. **Core of your dApp**
-    - A deployed Solana program.
-2. **Frontend**
-    - A simple frontend to interact with the dApp.
+### Prerequisites
+- Node.js 18+ or Bun
+- Solana CLI
+- Anchor Framework
+- Phantom/Solflare wallet
 
-### Requirements
-- An Anchor program deployed on **Devnet** or **Mainnet**.
-- The Anchor program must use a PDA (Program Derived Address).
-- At least one TypeScript **test** for each Anchor program instruction. These tests should cover both **happy** and **unhappy** (intentional error-triggering) scenarios.
-- A simple **frontend** deployed using your preferred provider (for more info, check below).
-- A filled out **PROJECT_DESCRIPTION.md** file.
+### Installation
 
-### Ideas
-We highly recommend starting with something simple. Take time to think through your project and work on it in iterations. Do not try to implement everything at once!
+```bash
+# Clone and setup
+git clone <your-repo>
+cd escrow
 
-Below is a list of few ideas to get you started:
-- **Social app**
-    - Instagram
-    - Giphy
-    - Friendtech
-    - Spotify
-- **Blog**
-- **Voting** ([D21 - Janeček method](https://www.ih21.org/en/guidelines))
-- **DeFi**
-    - Crowdfunding
-    - Raffles
-    - Escrow
-    - Tipping
-    - Lending ([Save Documentation](https://docs.save.finance/))
-    - Liquid Staking ([Marinade Documentation](https://docs.marinade.finance/))
-    - Data Query with Pyth ([Pyth Documentation](https://docs.pyth.network/price-feeds))
-    - AMM ([Raydium Documentation](https://raydium.gitbook.io/raydium/))
-- **Gaming**
-    - Browser Game ([Gaming on Solana](https://solanacookbook.com/gaming/nfts-in-games.html#nfts-in-games))
+# Install dependencies
+yarn install
+# or
+bun install
 
-### Deadline
-The deadline for this task is **Wednesday, August 27th, at 23:59 UTC**.
->[!CAUTION]
->Note that we will not accept submissions after the deadline.
+# Build program
+anchor build
 
-### Submission
-There are two folders, one for the Anchor project, and one for the frontend. Push your changes to the **main** branch of **this** repository.
+# Deploy to devnet
+anchor deploy --provider.cluster devnet
 
->[!IMPORTANT]
->It is essential that you fill out the `PROJECT_DESCRIPTION.md` template completely and accurately. This document will be used by AI for the initial evaluation, so provide detailed information about your project, including working links, clear descriptions, and technical implementation details.
+# Start frontend
+cd frontend
+bun install
+bun run dev
+```
 
-### Evaluation
-The evaluation process is based on the **requirements**. If you meet the requirements, you pass the task!
+### Usage
 
->[!NOTE]
->We have a record number of participants this season, so the first round of evaluations will be conducted by AI to verify requirements before manual review. AI can make mistakes. If you believe you fulfilled all requirements but weren't graded correctly, please create a support ticket and we will resolve the issue.
+1. **Connect Wallet** at http://localhost:5174
+2. **Create Escrow** - Deposit tokens and set exchange terms
+3. **Take Escrow** - Complete trades by providing requested tokens
+4. **Refund** - Reclaim your deposited tokens anytime
 
->[!CAUTION]
->We expect original work that demonstrates your understanding and creativity. While you may draw inspiration from examples covered in lessons and tasks, **direct copying is not acceptable**. If you choose to build upon an example from the School of Solana materials, you must significantly expand it with additional features, instructions, and functionality to showcase your learning progress. 
+## 💡 Example Transaction
 
-### Example Workflow
-Let's say you are going to implement the Twitter dApp as the Solana Program. Here's how the steps could look:
+Here's a complete example to test the escrow functionality on devnet:
 
-**1.** Implement Twitter dApp using the Anchor framework.
+### Step 1: Get Test Tokens
+```bash
+# Create a custom token for testing
+spl-token create-token --decimals 6
 
-**2.** Test the Twitter dApp using the Anchor framework.
+# Example output: GRmDAdVee795cya78KNVcxaGE1FuR7sLegqBFVzscNPf
 
-**3.** Deploy the Twitter dApp on the Solana Devnet.
+# Create token account and mint tokens to your wallet
+spl-token create-account GRmDAdVee795cya78KNVcxaGE1FuR7sLegqBFVzscNPf
+spl-token mint GRmDAdVee795cya78KNVcxaGE1FuR7sLegqBFVzscNPf 10000
+```
 
-**4.** Using the create solana dapp template, implement frontend for the Twitter dApp.
+### Step 2: Create Escrow
+Fill out the escrow form with these example values:
 
-**5.** Publish Frontend using [Vercel](https://vercel.com).
+| Field | Value | Description |
+|-------|-------|-------------|
+| **Seed** | `1` | Unique number (user-chosen, 1-999999) |
+| **Token A Mint** | `GRmDAdVee795cya78KNVcxaGE1FuR7sLegqBFVzscNPf` | Your custom token |
+| **Token B Mint** | `So11111111111111111111111111111111111111112` | Wrapped SOL |
+| **Deposit Amount** | `1000` | 1,000 of your custom tokens |
+| **Receive Amount** | `100000000` | 0.1 SOL (100M lamports) |
 
-**6.** Fill out the PROJECT_DESCRIPTION.md template.
+### Step 3: Test the Trade
+- **As Maker**: You can refund to get your tokens back
+- **As Taker**: Someone with 0.1 SOL can complete the trade
+- **Result**: Atomic swap of 1,000 custom tokens ↔ 0.1 SOL
 
-**7.** Submit the Twitter dApp using GitHub Classroom.
+### About the Seed Parameter
+The **seed** is a user-chosen number that:
+- Must be unique per maker (you can't reuse the same seed)
+- Creates deterministic escrow addresses
+- Allows you to have multiple active escrows
+- Can be any number (commonly 1, 2, 3... for simplicity)
 
-### Useful Links
-- [Vercel](https://vercel.com)
-- [Create Solana Dapp](https://github.com/solana-foundation/create-solana-dapp)
-- [Account Macro Constraints](https://docs.rs/anchor-lang/latest/anchor_lang/derive.Accounts.html#constraints)
-- [Solana Developers Courses](https://solana.com/developers/courses)
+**Example Seeds:**
+- Use `1` for your first escrow
+- Use `2` for your second escrow  
+- Use `42` if you like that number
+- Use `123456` for a more unique identifier
 
------
+## 🏗️ Architecture
 
-### Need help?
->[!TIP]
->If you have any questions, feel free to reach out to us on [Discord](https://discord.gg/z3JVuZyFnp).
+### Program Structure
+```
+escrow/
+├── programs/escrow/          # Anchor program
+├── tests/                    # Test suite
+├── frontend/                 # React frontend
+└── target/                   # Build artifacts
+```
+
+### Key Components
+- **Escrow Account**: Stores trade parameters and state
+- **Vault ATA**: Holds deposited tokens securely
+- **PDA Authority**: Program-controlled token operations
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+anchor test
+
+# Test specific scenarios
+anchor test --skip-deploy
+```
+
+**Test Coverage:**
+- ✅ Escrow creation and token deposits
+- ✅ Successful token exchanges
+- ✅ Maker refunds and account closure
+- ✅ Error handling and constraint validation
+
+## 📋 Program Details
+
+**Program ID:** `8hMrECVej1KoLvygnfLytvGEuvQwGMT5jobXHkjjWpyS`
+
+**Instructions:**
+- `make` - Create escrow and deposit tokens
+- `take` - Execute token exchange
+- `refund` - Return tokens to maker
+
+**Security Features:**
+- PDA-based authority control
+- Comprehensive constraint validation
+- Atomic token operations
+- Zero-trust architecture
+
+## 🌐 Frontend
+
+Built with React, TypeScript, and Solana wallet adapters.
+
+**Features:**
+- Real-time escrow monitoring
+- Multi-wallet support
+- Error handling and validation
+- Responsive design
+
+## 🔧 Development
+
+### Locearn More
+
+- [Anchor Documentation](https://www.anchor-lang.com/)
+- [Solana Cookbook](https://solanacookbook.com/)
+- [SPL Token Program](https://spl.solana.com/token)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch
+3. Add tests for new functionality
+4. Submit pull request
+
+## 📄 License
+
+MIT License - see LICENSE file for details.
