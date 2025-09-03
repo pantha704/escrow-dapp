@@ -1,6 +1,6 @@
 # Project Description
 
-**Deployed Frontend URL:** http://localhost:5174
+**Deployed Frontend URL:** https://escrow-dapp-gamma.vercel.app
 
 **Solana Program ID:** 8hMrECVej1KoLvygnfLytvGEuvQwGMT5jobXHkjjWpyS
 
