@@ -51,6 +51,49 @@ export const EscrowList: React.FC<EscrowListProps> = ({
     }
   };
 
+  // Add this function at the top of your component (inside the component function)
+  const copyToClipboard = async (value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      
+      // Simple toast notification
+      const toast = document.createElement('div');
+      toast.textContent = 'Copied token address!';
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
+      `;
+      
+      document.body.appendChild(toast);
+      
+      // Slide in
+      setTimeout(() => toast.style.transform = 'translateX(0)', 10);
+      
+      // Slide out and remove
+      setTimeout(() => {
+        toast.style.transform = 'translateX(400px)';
+        setTimeout(() => document.body.removeChild(toast), 300);
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
+  
+  
+  
+
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
       <h2 className="text-2xl font-bold mb-6 text-purple-300">
@@ -69,27 +112,40 @@ export const EscrowList: React.FC<EscrowListProps> = ({
             >
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Seed:</span>
+                  <span className="text-sm text-gray-400">Seed :</span>
                   <span className="font-mono text-purple-300">
                     {escrow.seed}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Vault Balance:</span>
-                  <span className="font-mono text-purple-300">
+                  <span className="text-sm text-gray-400 cursor-pointer hover:text-purple-200"
+                  onClick={() => copyToClipboard(escrow.mintA)}
+                  title={`${escrow.mintA}`}
+                  >
+                    <span className="underline">Vault Balance</span> :
+                  </span>
+                  
+                  <span 
+                    className="font-mono text-purple-300"
+                  >
                     {formatTokenAmount(escrow.vaultBalance)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">
-                    Expected Token B:
+                <div className="flex justify-between items-center cursor-pointer hover:text-purple-200">
+                  <span className="text-sm text-gray-400"
+                  onClick={() => copyToClipboard(escrow.mintB)}
+                  title={`${escrow.mintB}`}
+                  >
+                    <span className="underline">Expected Token Amount</span> :
                   </span>
-                  <span className="font-mono text-purple-300">
+                  <span 
+                    className="font-mono text-purple-300 "
+                  >
                     {formatTokenAmount(escrow.receive)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Maker:</span>
+                  <span className="text-sm text-gray-400">Maker :</span>
                   <span className="font-mono text-purple-300 text-xs">
                     {truncateAddress(escrow.maker)}
                   </span>

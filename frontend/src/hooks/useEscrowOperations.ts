@@ -14,7 +14,6 @@ import {
   deriveBaseTokenAccounts,
   deriveTakeTokenAccounts,
   validateEscrowParams,
-  validatePublicKeys
 } from "../utils/escrow";
 import type { EscrowProgram, EscrowAccountData } from "../types/program";
 
