@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "copy-idl": "node scripts/ensure-idl.js",
-    "dev": "npm run copy-idl && vite",
-    "build": "npm run copy-idl && tsc -b && vite build",
-    "build:vercel": "tsc -b && vite build",
+    "dev": "bun run copy-idl && vite",
+    "build": "bun run copy-idl && tsc -b && vite build",
+    "build:vercel": "./node_modules/.bin/vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -3,13 +3,20 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import {
-  getAssociatedTokenAddress,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
   getAccount,
 } from "@solana/spl-token";
 import { useTransaction } from "./useTransaction";
 import { useEscrowProgram } from "./useEscrowProgram";
+import { useTokenValidation } from "./useTokenValidation";
+import { 
+  deriveEscrowPda, 
+  deriveEscrowTokenAccounts, 
+  validateEscrowParams 
+} from "../utils/escrow";
+import type { EscrowProgram, EscrowAccountData } from "../types/program";
 
 interface CreateEscrowParams {
   seed: number;
@@ -30,7 +37,8 @@ interface RefundEscrowParams {
 export const useEscrowOperations = () => {
   const wallet = useWallet();
   const { connection } = useConnection();
-  const program = useEscrowProgram();
+  const program = useEscrowProgram() as EscrowProgram | null;
+  const { validateTokenBalance } = useTokenValidation();
   const { executeTransaction, ...transactionState } = useTransaction({
     timeout: 90000, // 90 seconds for escrow operations
     maxRetries: 2,
@@ -43,48 +51,29 @@ export const useEscrowOperations = () => {
       }
 
       const { seed, mintA, mintB, depositAmount, receiveAmount } = params;
+      
+      // Validate parameters
+      validateEscrowParams({ seed, depositAmount, receiveAmount });
+      
       const seedBN = new BN(seed);
       const depositBN = new BN(depositAmount);
       const receiveBN = new BN(receiveAmount);
 
       return executeTransaction(async () => {
         // Derive escrow PDA
-        const [escrowPda] = PublicKey.findProgramAddressSync(
-          [
-            Buffer.from("escrow"),
-            wallet.publicKey!.toBuffer(),
-            seedBN.toArrayLike(Buffer, "le", 8),
-          ],
-          program.programId
-        );
+        const [escrowPda] = deriveEscrowPda(wallet.publicKey!, seed, program.programId);
 
         // Get token accounts
-        const vaultPda = await getAssociatedTokenAddress(
-          mintA,
+        const { vault, makerAtaA } = await deriveEscrowTokenAccounts(
           escrowPda,
-          true
-        );
-        const makerAtaA = await getAssociatedTokenAddress(
+          wallet.publicKey!,
+          null,
           mintA,
-          wallet.publicKey!
+          mintB
         );
 
         // Verify token account exists and has sufficient balance
-        try {
-          const tokenAccount = await getAccount(connection, makerAtaA);
-          if (tokenAccount.amount < BigInt(depositAmount)) {
-            throw new Error(
-              `Insufficient token balance. Required: ${depositAmount}, Available: ${tokenAccount.amount}`
-            );
-          }
-        } catch (error: any) {
-          if (error.message.includes("Insufficient")) {
-            throw error;
-          }
-          throw new Error(
-            `Token account for ${mintA.toString()} not found. Please create it first in your wallet.`
-          );
-        }
+        await validateTokenBalance(makerAtaA, BigInt(depositAmount), mintA);
 
         // Execute transaction
         return await program.methods
@@ -95,7 +84,7 @@ export const useEscrowOperations = () => {
             mintA,
             mintB,
             makerAtaA,
-            vault: vaultPda,
+            vault,
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
@@ -103,7 +92,7 @@ export const useEscrowOperations = () => {
           .rpc();
       });
     },
-    [program, wallet.publicKey, connection, executeTransaction]
+    [program, wallet.publicKey, validateTokenBalance, executeTransaction]
   );
 
   const takeEscrow = useCallback(
@@ -116,65 +105,45 @@ export const useEscrowOperations = () => {
 
       return executeTransaction(async () => {
         // Fetch escrow account
-        const escrowAccount = await program.account.escrow.fetch(escrowPda);
+        const escrowAccount: EscrowAccountData = await program.account.escrow.fetch(escrowPda);
 
         // Derive token accounts
-        const vault = await getAssociatedTokenAddress(
-          escrowAccount.mintA,
+        const { vault, takerAtaA, takerAtaB, makerAtaB } = await deriveEscrowTokenAccounts(
           escrowPda,
-          true
-        );
-        const takerAtaA = await getAssociatedTokenAddress(
+          escrowAccount.maker,
+          wallet.publicKey!,
           escrowAccount.mintA,
-          wallet.publicKey!
-        );
-        const takerAtaB = await getAssociatedTokenAddress(
-          escrowAccount.mintB,
-          wallet.publicKey!
-        );
-        const makerAtaB = await getAssociatedTokenAddress(
-          escrowAccount.mintB,
-          escrowAccount.maker
+          escrowAccount.mintB
         );
 
         // Verify taker has sufficient tokens
-        try {
-          const takerTokenAccount = await getAccount(connection, takerAtaB);
-          if (
-            takerTokenAccount.amount < BigInt(escrowAccount.receive.toString())
-          ) {
-            throw new Error(
-              `Insufficient token balance. Required: ${escrowAccount.receive}, Available: ${takerTokenAccount.amount}`
-            );
-          }
-        } catch (error: any) {
-          if (error.message.includes("Insufficient")) {
-            throw error;
-          }
-          throw new Error(
-            `Token account for ${escrowAccount.mintB.toString()} not found. Please create it first in your wallet.`
-          );
-        }
+        await validateTokenBalance(
+          takerAtaB!, 
+          BigInt(escrowAccount.receive), 
+          escrowAccount.mintB
+        );
 
         // Execute transaction
         return await program.methods
           .take()
           .accounts({
             taker: wallet.publicKey!,
+            maker: escrowAccount.maker,
             escrow: escrowPda,
             mintA: escrowAccount.mintA,
             mintB: escrowAccount.mintB,
             vault,
-            takerAtaA,
-            takerAtaB,
+            takerAtaA: takerAtaA!,
+            takerAtaB: takerAtaB!,
             makerAtaB,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
           })
           .rpc();
       });
     },
-    [program, wallet.publicKey, connection, executeTransaction]
+    [program, wallet.publicKey, validateTokenBalance, executeTransaction]
   );
 
   const refundEscrow = useCallback(
@@ -187,7 +156,7 @@ export const useEscrowOperations = () => {
 
       return executeTransaction(async () => {
         // Fetch escrow account
-        const escrowAccount = await program.account.escrow.fetch(escrowPda);
+        const escrowAccount: EscrowAccountData = await program.account.escrow.fetch(escrowPda);
 
         // Verify caller is the maker
         if (!escrowAccount.maker.equals(wallet.publicKey!)) {
@@ -195,14 +164,12 @@ export const useEscrowOperations = () => {
         }
 
         // Derive token accounts
-        const vault = await getAssociatedTokenAddress(
-          escrowAccount.mintA,
+        const { vault, makerAtaA } = await deriveEscrowTokenAccounts(
           escrowPda,
-          true
-        );
-        const makerAtaA = await getAssociatedTokenAddress(
+          wallet.publicKey!,
+          null,
           escrowAccount.mintA,
-          wallet.publicKey!
+          escrowAccount.mintB
         );
 
         // Execute transaction
@@ -214,6 +181,7 @@ export const useEscrowOperations = () => {
             mintA: escrowAccount.mintA,
             vault,
             makerAtaA,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
           })

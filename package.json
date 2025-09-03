@@ -6,9 +6,9 @@
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "copy-idl": "node scripts/sync-idl.js",
     "dev": "./scripts/dev-frontend.sh",
-    "frontend:dev": "cd frontend && npm run dev",
-    "frontend:build": "cd frontend && npm run build",
-    "frontend:install": "cd frontend && npm install"
+    "frontend:dev": "cd frontend && bun run dev",
+    "frontend:build": "cd frontend && bun run build",
+    "frontend:install": "cd frontend && bun install"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
