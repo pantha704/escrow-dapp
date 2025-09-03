@@ -5,16 +5,16 @@ import { BN } from "@coral-xyz/anchor";
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddress,
-  getAccount,
 } from "@solana/spl-token";
 import { useTransaction } from "./useTransaction";
 import { useEscrowProgram } from "./useEscrowProgram";
 import { useTokenValidation } from "./useTokenValidation";
 import { 
   deriveEscrowPda, 
-  deriveEscrowTokenAccounts, 
-  validateEscrowParams 
+  deriveBaseTokenAccounts,
+  deriveTakeTokenAccounts,
+  validateEscrowParams,
+  validatePublicKeys
 } from "../utils/escrow";
 import type { EscrowProgram, EscrowAccountData } from "../types/program";
 
@@ -36,13 +36,23 @@ interface RefundEscrowParams {
 
 export const useEscrowOperations = () => {
   const wallet = useWallet();
-  const { connection } = useConnection();
   const program = useEscrowProgram() as EscrowProgram | null;
   const { validateTokenBalance } = useTokenValidation();
   const { executeTransaction, ...transactionState } = useTransaction({
     timeout: 90000, // 90 seconds for escrow operations
     maxRetries: 2,
   });
+
+  // Helper function to validate prerequisites
+  const validatePrerequisites = useCallback(() => {
+    if (!program) {
+      throw new Error("Program not available. Please check your connection.");
+    }
+    if (!wallet.publicKey) {
+      throw new Error("Wallet not connected. Please connect your wallet.");
+    }
+    return { program, publicKey: wallet.publicKey };
+  }, [program, wallet.publicKey]);
 
   const createEscrow = useCallback(
     async (params: CreateEscrowParams) => {
@@ -64,10 +74,9 @@ export const useEscrowOperations = () => {
         const [escrowPda] = deriveEscrowPda(wallet.publicKey!, seed, program.programId);
 
         // Get token accounts
-        const { vault, makerAtaA } = await deriveEscrowTokenAccounts(
+        const { vault, makerAtaA } = await deriveBaseTokenAccounts(
           escrowPda,
           wallet.publicKey!,
-          null,
           mintA,
           mintB
         );
@@ -108,7 +117,7 @@ export const useEscrowOperations = () => {
         const escrowAccount: EscrowAccountData = await program.account.escrow.fetch(escrowPda);
 
         // Derive token accounts
-        const { vault, takerAtaA, takerAtaB, makerAtaB } = await deriveEscrowTokenAccounts(
+        const { vault, takerAtaA, takerAtaB, makerAtaB } = await deriveTakeTokenAccounts(
           escrowPda,
           escrowAccount.maker,
           wallet.publicKey!,
@@ -164,10 +173,9 @@ export const useEscrowOperations = () => {
         }
 
         // Derive token accounts
-        const { vault, makerAtaA } = await deriveEscrowTokenAccounts(
+        const { vault, makerAtaA } = await deriveBaseTokenAccounts(
           escrowPda,
           wallet.publicKey!,
-          null,
           escrowAccount.mintA,
           escrowAccount.mintB
         );

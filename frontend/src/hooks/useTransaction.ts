@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import type { TransactionState } from "../types";
 
@@ -17,20 +17,51 @@ const NON_RETRYABLE_ERROR_KEYWORDS = [
   "rejected"
 ] as const;
 
+/**
+ * Configuration options for the useTransaction hook
+ */
 interface UseTransactionOptions {
+  /** Timeout in milliseconds for transaction execution (default: 60000) */
   timeout?: number;
+  /** Maximum number of retry attempts (default: 2) */
   maxRetries?: number;
 }
 
+/**
+ * Function that executes a transaction and returns the signature
+ */
 type TransactionFunction = () => Promise<string>;
 
+/**
+ * Hook for managing Solana transaction execution with retry logic, timeout handling,
+ * and comprehensive error management.
+ * 
+ * Features:
+ * - Automatic retry with exponential backoff
+ * - Transaction timeout handling
+ * - Comprehensive error classification
+ * - Progress tracking
+ * - Cancellation support
+ * - Proper cleanup on unmount
+ * 
+ * @param options Configuration options for transaction behavior
+ * @returns Transaction state and control functions
+ */
 export const useTransaction = (options: UseTransactionOptions = {}) => {
   const { connection } = useConnection();
   const [state, setState] = useState<TransactionState>({ status: "idle" });
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { 
     timeout = DEFAULT_TIMEOUT, 
     maxRetries = DEFAULT_MAX_RETRIES 
   } = options;
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const formatError = useCallback((error: any): string => {
     // Handle Solana program errors
@@ -134,12 +165,26 @@ export const useTransaction = (options: UseTransactionOptions = {}) => {
     return true;
   }, [maxRetries]);
 
+  const cancel = useCallback(() => {
+    abortControllerRef.current?.abort();
+    setState({ status: "idle" });
+  }, []);
+
   const executeTransaction = useCallback(
-    async (transactionFn: () => Promise<string>): Promise<string | null> => {
+    async (transactionFn: TransactionFunction): Promise<string | null> => {
+      // Cancel any existing transaction
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
+      
       let lastError: any;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
+          // Check if cancelled
+          if (abortControllerRef.current.signal.aborted) {
+            throw new Error("Transaction cancelled");
+          }
+
           setState({ 
             status: "pending",
             progress: {
@@ -150,6 +195,12 @@ export const useTransaction = (options: UseTransactionOptions = {}) => {
           });
 
           const signature = await executeWithTimeout(transactionFn);
+          
+          // Check if cancelled before confirmation
+          if (abortControllerRef.current.signal.aborted) {
+            throw new Error("Transaction cancelled");
+          }
+          
           await confirmTransaction(signature);
 
           setState({ status: "success", signature });
@@ -157,14 +208,28 @@ export const useTransaction = (options: UseTransactionOptions = {}) => {
         } catch (error: any) {
           lastError = error;
 
+          // Don't retry if cancelled
+          if (error.message === "Transaction cancelled") {
+            setState({ status: "idle" });
+            return null;
+          }
+
           if (!shouldRetry(error, attempt)) {
             break;
           }
 
           // Exponential backoff with jitter
-          const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+          const delay = Math.min(1000 * Math.pow(BACKOFF_BASE, attempt), MAX_BACKOFF_DELAY);
           const jitter = Math.random() * 0.1 * delay;
-          await new Promise(resolve => setTimeout(resolve, delay + jitter));
+          
+          // Cancellable delay
+          await new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(resolve, delay + jitter);
+            abortControllerRef.current?.signal.addEventListener('abort', () => {
+              clearTimeout(timeoutId);
+              reject(new Error("Transaction cancelled"));
+            });
+          });
         }
       }
 
@@ -185,12 +250,16 @@ export const useTransaction = (options: UseTransactionOptions = {}) => {
   return {
     state,
     executeTransaction,
+    cancel,
     reset,
+    // Computed state helpers
     isLoading: state.status === "pending" || state.status === "confirming",
     isPending: state.status === "pending",
     isConfirming: state.status === "confirming",
     isSuccess: state.status === "success",
     isError: state.status === "error",
     isIdle: state.status === "idle",
+    // Progress information
+    progress: state.progress,
   };
 };

@@ -1,10 +1,7 @@
 import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
-import {
-  getAssociatedTokenAddress,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
+import { formatTokenAmount, truncateAddress } from "../utils/tokenFormat";
+import { useEscrowOperations } from "../hooks/useEscrowOperations";
 
 interface Escrow {
   publicKey: string;
@@ -18,118 +15,39 @@ interface Escrow {
 
 interface EscrowListProps {
   escrows: Escrow[];
-  program: any;
-  loading: boolean;
-  setLoading: (loading: boolean) => void;
   onRefresh: () => void;
 }
 
 export const EscrowList: React.FC<EscrowListProps> = ({
   escrows,
-  program,
-  loading,
-  setLoading,
   onRefresh,
 }) => {
   const wallet = useWallet();
+  const { takeEscrow, refundEscrow, isLoading } = useEscrowOperations();
 
-  const takeEscrow = async (escrow: Escrow) => {
-    if (!program || !wallet.publicKey) return;
+  const handleTakeEscrow = async (escrow: Escrow) => {
+    if (!wallet.publicKey) return;
 
     try {
-      setLoading(true);
-
       const escrowPubkey = new PublicKey(escrow.publicKey);
-      const makerPubkey = new PublicKey(escrow.maker);
-      const mintAPubkey = new PublicKey(escrow.mintA);
-      const mintBPubkey = new PublicKey(escrow.mintB);
-
-      const vaultPda = await getAssociatedTokenAddress(
-        mintAPubkey,
-        escrowPubkey,
-        true
-      );
-      const takerAtaA = await getAssociatedTokenAddress(
-        mintAPubkey,
-        wallet.publicKey
-      );
-      const takerAtaB = await getAssociatedTokenAddress(
-        mintBPubkey,
-        wallet.publicKey
-      );
-      const makerAtaB = await getAssociatedTokenAddress(
-        mintBPubkey,
-        makerPubkey
-      );
-
-      const tx = await program.methods
-        .take()
-        .accounts({
-          taker: wallet.publicKey,
-          maker: makerPubkey,
-          escrow: escrowPubkey,
-          mintA: mintAPubkey,
-          mintB: mintBPubkey,
-          vault: vaultPda,
-          takerAtaA: takerAtaA,
-          takerAtaB: takerAtaB,
-          makerAtaB: makerAtaB,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-
-      console.log("Transaction signature:", tx);
+      await takeEscrow({ escrowPda: escrowPubkey });
       onRefresh();
     } catch (error: any) {
       console.error("Failed to take escrow:", error);
       alert("Failed to take escrow: " + error.message);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const refundEscrow = async (escrow: Escrow) => {
-    if (!program || !wallet.publicKey) return;
+  const handleRefundEscrow = async (escrow: Escrow) => {
+    if (!wallet.publicKey) return;
 
     try {
-      setLoading(true);
-
       const escrowPubkey = new PublicKey(escrow.publicKey);
-      const mintAPubkey = new PublicKey(escrow.mintA);
-
-      const vaultPda = await getAssociatedTokenAddress(
-        mintAPubkey,
-        escrowPubkey,
-        true
-      );
-      const makerAtaA = await getAssociatedTokenAddress(
-        mintAPubkey,
-        wallet.publicKey
-      );
-
-      const tx = await program.methods
-        .refund()
-        .accounts({
-          maker: wallet.publicKey,
-          escrow: escrowPubkey,
-          mintA: mintAPubkey,
-          vault: vaultPda,
-          makerAtaA: makerAtaA,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-
-      console.log("Transaction signature:", tx);
+      await refundEscrow({ escrowPda: escrowPubkey });
       onRefresh();
     } catch (error: any) {
       console.error("Failed to refund escrow:", error);
       alert("Failed to refund escrow: " + error.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -159,7 +77,7 @@ export const EscrowList: React.FC<EscrowListProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">Vault Balance:</span>
                   <span className="font-mono text-purple-300">
-                    {escrow.vaultBalance}
+                    {formatTokenAmount(escrow.vaultBalance)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -167,22 +85,28 @@ export const EscrowList: React.FC<EscrowListProps> = ({
                     Expected Token B:
                   </span>
                   <span className="font-mono text-purple-300">
-                    {escrow.receive}
+                    {formatTokenAmount(escrow.receive)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Maker:</span>
+                  <span className="font-mono text-purple-300 text-xs">
+                    {truncateAddress(escrow.maker)}
                   </span>
                 </div>
                 <div className="flex gap-2 mt-3">
                   {escrow.maker === wallet.publicKey?.toString() ? (
                     <button
-                      onClick={() => refundEscrow(escrow)}
-                      disabled={loading}
+                      onClick={() => handleRefundEscrow(escrow)}
+                      disabled={isLoading}
                       className="flex-1 py-2 bg-red-600 rounded-lg text-sm font-bold hover:bg-red-700 transition-all disabled:opacity-50"
                     >
                       Refund
                     </button>
                   ) : (
                     <button
-                      onClick={() => takeEscrow(escrow)}
-                      disabled={loading}
+                      onClick={() => handleTakeEscrow(escrow)}
+                      disabled={isLoading}
                       className="flex-1 py-2 bg-green-600 rounded-lg text-sm font-bold hover:bg-green-700 transition-all disabled:opacity-50"
                     >
                       Take Escrow
@@ -196,7 +120,7 @@ export const EscrowList: React.FC<EscrowListProps> = ({
       </div>
       <button
         onClick={onRefresh}
-        disabled={loading}
+        disabled={isLoading}
         className="w-full mt-4 py-2 bg-gray-700 rounded-lg text-sm hover:bg-gray-600 transition-all disabled:opacity-50"
       >
         Refresh

@@ -1,20 +1,14 @@
-import { Program } from "@coral-xyz/anchor";
+import { Program, BN } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
+import type { BlueshiftAnchorEscrow } from "./idl";
 
-export interface EscrowProgram extends Program {
-  account: {
-    escrow: {
-      fetch: (address: PublicKey) => Promise<EscrowAccountData>;
-      all: () => Promise<Array<{ publicKey: PublicKey; account: EscrowAccountData }>>;
-    };
-  };
-}
+export type EscrowProgram = Program<BlueshiftAnchorEscrow>;
 
 export interface EscrowAccountData {
-  seed: number;
+  seed: BN;
   maker: PublicKey;
   mintA: PublicKey;
   mintB: PublicKey;
-  receive: number;
+  receive: BN;
   bump: number;
 }
